@@ -7,10 +7,12 @@ file differs. They are the internal **BSR0..BSR5** members of `MC0:0`; they do
 **not** receive individual HW addresses. The ring as a whole is **`HW5:0`** for
 NaN routing.
 
-Koyeb remains the NANNET portal (pairing, issuer, auth, training merge) and is
-also the atomic runner-ring authority: nanclock tick, single-active-slot lease,
-epoch, and bounded handoff checkpoint. The runners themselves are non-Koyeb
-24/7 processes.
+Koyeb remains the single `nannet-portal` service: pairing, issuer, auth,
+training merge, the atomic runner-ring authority **and one embedded ring slot**.
+The public ring ingress is `https://nannet.apps.mistral.run/v1/ring/*` and
+`NANROUTER_RUNNER_URL` is the portal itself. These six repositories are optional
+non-Koyeb hot standbys for redundancy; they do not get individual HW addresses.
+The ring as a whole is `HW5:0`.
 
 ## Temporal handoff
 
