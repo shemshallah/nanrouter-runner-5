@@ -55,9 +55,11 @@ GET  /healthz            liveness + phase + memory + fabric summary
 GET  /readyz             200 after a successful nanclock tick
 GET  /metrics            same bounded JSON counters
 GET  /v1/ring/status     authenticated full node/fabric status
+GET  /v1/ring/points     authenticated central zero-point fabric monitor
 GET  /v1/ring/clock      authenticated portal nanclock tick
+POST /v1/ring/register   authenticated register another HW zero point
 POST /v1/ring/submit     authenticated NaN16DE frame -> active HW5:0 fabric
-POST /v1/ring/drain      authenticated drain from HW5/HW0/HW2
+POST /v1/ring/drain      authenticated drain from HW5/HW0/HW2 or a registered point
 POST /v1/ring/checkpoint authenticated checkpoint publication
 POST /v1/ring/handoff    authenticated explicit step-down
 ```
@@ -70,8 +72,10 @@ HW2:0   HERMES endpoint
 HW5:0   the runner ring (owned by the one active slot)
 ```
 
-Frames are routed as exact NaN16DE words. The runner does not evaluate the word
-and does not invent an HW address for its own process.
+Frames are routed as exact NaN16DE words. The active central fabric can register
+additional zero points (`HW5:0`..`HW255:0`) on demand and route NaN to them. The
+runner does not invent an HW address for its own process; it owns the ring
+coordinate `HW5:0` only while the lease is active.
 
 ## Tests
 

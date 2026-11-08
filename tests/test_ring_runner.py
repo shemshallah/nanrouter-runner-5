@@ -245,6 +245,30 @@ class HealthServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(drained["count"], 1)
 
+    def test_register_extra_zero_point_and_route_to_it(self):
+        status, registered = self._post("/v1/ring/register", {
+            "hw": 9, "role": "general-hardware-node", "status": "active",
+        })
+        self.assertEqual(status, 200)
+        self.assertTrue(registered["registered"])
+        status, receipt = self._post("/v1/ring/submit", {
+            "frame": {
+                "request_id": 3, "source_hw": 0, "destination_hw": 9,
+                "nanclock_tick": 2, "kind": "nannet.route",
+                "acl_digest": ACL, "word_hex": "7ff112345678f8ff",
+            }
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(receipt["central_status"], "delivered")
+        status, drained = self._post("/v1/ring/drain", {"hw": 9, "limit": 2})
+        self.assertEqual(status, 200)
+        self.assertEqual(drained["count"], 1)
+        request = Request(self.base + "/v1/ring/points",
+                          headers={"Authorization": "Bearer " + TOKEN})
+        with urlopen(request, timeout=3) as response:
+            points = json.loads(response.read())
+        self.assertGreaterEqual(points["fabric"]["registered"], 4)
+
     def test_auth_required(self):
         with self.assertRaises(HTTPError) as err:
             self._post("/v1/ring/submit", {"frame": {}}, token="x" * 40)

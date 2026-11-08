@@ -409,6 +409,9 @@ def make_handler(coordinator: RunnerRingCoordinator, token: str):
                         self._json(200, coordinator.client.clock())
                     except RingAuthorityError as exc:
                         self._json(503, {"error": str(exc)[:200]})
+            elif path == "/v1/ring/points":
+                if self._auth():
+                    self._json(200, coordinator.fabric.monitor())
             else:
                 self._json(404, {"error": "not found"})
 
@@ -436,6 +439,13 @@ def make_handler(coordinator: RunnerRingCoordinator, token: str):
                         "count": len(frames),
                         "frames": frames,
                     })
+                elif path == "/v1/ring/register":
+                    if not coordinator.active:
+                        self._json(409, {"error": "this slot is not active"})
+                        return
+                    self._json(200, coordinator.fabric.register_point(
+                        int(body["hw"]), role=body.get("role"),
+                        status=body.get("status", "active")))
                 elif path == "/v1/ring/handoff":
                     self._json(200, coordinator.handoff())
                 elif path == "/v1/ring/checkpoint":

@@ -64,6 +64,14 @@ class SlotFabric:
         if not self._active:
             raise SlotFabricError("this runner slot is not the active ring owner")
 
+    def register_point(self, hw: int, *, role: str | None = None,
+                       status: str = "active") -> dict[str, Any]:
+        self.require_active()
+        return self.fabric.register(hw, role=role, status=status)
+
+    def point_monitor(self, hw: int) -> dict[str, Any]:
+        return self.fabric.point_monitor(hw)
+
     def submit_json(self, value: Any) -> dict[str, Any]:
         self.require_active()
         frame = frame_from_json(value)
