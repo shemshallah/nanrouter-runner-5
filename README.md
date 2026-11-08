@@ -1,77 +1,84 @@
 # nanrouter-runner-5
 
-24/7 **NaNVerse runner** for slot `5` and zero point `HW10:0`.
+NaNVerse six-slot **runner-ring node** `5`.
 
-Koyeb remains the NANNET portal (pairing, issuer, auth, training merge). This
-repository is a **non-Koyeb** runner: it monitors, translates and routes NaN
-traffic for the runner ring. It never holds portal secrets and never mints an
-issuer.
+All six `nanrouter-runner-0..5` repositories run the same code. Only the `slot`
+file differs. They are the internal **BSR0..BSR5** members of `MC0:0`; they do
+**not** receive individual HW addresses. The ring as a whole is **`HW5:0`** for
+NaN routing.
 
-## Role
+Koyeb remains the NANNET portal (pairing, issuer, auth, training merge) and is
+also the atomic runner-ring authority: nanclock tick, single-active-slot lease,
+epoch, and bounded handoff checkpoint. The runners themselves are non-Koyeb
+24/7 processes.
 
-`role` = `agent`
+## Temporal handoff
 
-- `hub` (normally runner-0): runs the central zero-point fabric, monitors every
-  registered point, persists pending frames and exposes the bounded
-  `/v1/fabric/*` API.
-- `agent` (runners 1-5): owns `HW10:0`, registers/heartbeats with the hub,
-  drains NaN16DE frames into a durable local journal and routes them by an
-  explicit kind-prefix table.
+```text
+runner-0 ──┐
+runner-1 ──┤   Koyeb atomic lease + nanclock + epoch
+runner-2 ──┼─> exactly ONE active slot runs the HW5:0 fabric
+runner-3 ──┤   the other five are hot standbys
+runner-4 ──┤
+runner-5 ──┘
+```
 
-The agent never evaluates NaN words and never invents a route from a runner
-slot or byte offset. It preserves the exact NaN16DE word bytes.
+- The portal allocates a strictly monotone `nanclock_tick` under a SQLite
+  `BEGIN IMMEDIATE` transaction.
+- One slot holds the lease. A different slot is denied while the lease is live.
+- On expiry, release or explicit handoff, the next slot acquires with
+  `epoch + 1`, restores the bounded checkpoint and continues.
+- The checkpoint carries the exact `HW5:0` fabric inbox, including NaN16DE
+  words, so accepted frames are not silently lost during handoff.
+- If the active process dies, its lease expires and a standby takes over.
+
+The 7 GiB budget is reported and soft-enforced per runner process. It is not a
+claim that the host physically reserves 7 GiB.
 
 ## Run
 
 ```sh
-export NANROUTER_FABRIC_TOKEN='<32+ random characters>'
-export NANROUTER_URL='https://<hub-host>'
+export NANROUTER_RING_URL='https://nannet.apps.mistral.run'
+export NANROUTER_RING_TOKEN='<32+ random characters matching the portal>'
+export NANROUTER_RUNNER_URL='https://<this-runner-public-url>'
 export NANROUTER_RUNNER_STATE_DIR=/data/runner-state
 ./start.sh
 ```
 
+The portal must have `RUNNER_RING_TOKEN` set to the same secret. Do not put the
+token in Git.
+
 Health:
 
 ```text
-GET /healthz   liveness + counters
-GET /readyz    200 only after a recent successful poll
-GET /metrics   same bounded JSON counters
+GET  /healthz            liveness + phase + memory + fabric summary
+GET  /readyz             200 after a successful nanclock tick
+GET  /metrics            same bounded JSON counters
+GET  /v1/ring/status     authenticated full node/fabric status
+GET  /v1/ring/clock      authenticated portal nanclock tick
+POST /v1/ring/submit     authenticated NaN16DE frame -> active HW5:0 fabric
+POST /v1/ring/drain      authenticated drain from HW5/HW0/HW2
+POST /v1/ring/checkpoint authenticated checkpoint publication
+POST /v1/ring/handoff    authenticated explicit step-down
 ```
 
-## Hub mode
+## Ring addresses
 
-```sh
-export NANROUTER_FABRIC_TOKEN='<32+ random characters>'
-export FABRIC_DB=/data/point-fabric.sqlite
-export HUB_ACTIVE_POINTS=0,2
-./start.sh
+```text
+HW0:0   Bootstrap network port
+HW2:0   HERMES endpoint
+HW5:0   the runner ring (owned by the one active slot)
 ```
 
-`HW0:0` is the Bootstrap network port. `HW2:0` is the HERMES endpoint. General
-runners own `HW5:0`..`HW255:0`; the portal remains the allocation authority.
-
-## Route table
-
-`NANROUTER_RUNNER_ROUTES` is a JSON object of kind prefixes to destination zero points:
-
-```json
-{"hermes.": 2, "wordnet.": 4, "vector": 0}
-```
-
-A route to the agent's own point is ignored to prevent a loop. Without an
-explicit route, drained frames are only journaled, not re-emitted.
-
-## Boundaries
-
-- No secret is stored in Git.
-- No NaN arithmetic is performed on the host.
-- The existing NANNET portal and HERMES lease authority remain authoritative.
-- Durable pending frames are SQLite WAL in hub mode and JSONL in agent mode.
-- This repository is deployable on any 24/7 non-Koyeb host (Termux/Android,
-  VPS, home server, Codespace) with Python 3.10+ or Docker.
+Frames are routed as exact NaN16DE words. The runner does not evaluate the word
+and does not invent an HW address for its own process.
 
 ## Tests
 
 ```sh
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+Coverage includes slot-only identity (no HW field), 7 GiB budget, atomic lease
+activation, standby denial, checkpoint publication, handoff with inbox
+preservation, authenticated submit/drain, and no-token rejection.

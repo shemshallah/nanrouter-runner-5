@@ -686,6 +686,89 @@ class CentralPointFabric:
                 "nan16de_heads": list(NAN16DE_HEADS_HEX),
             }
 
+    def export_state(self, *, max_frames: int = 1024) -> dict[str, Any]:
+        """Export a bounded handoff snapshot for a new active runner.
+
+        Frames are preserved as exact ``NPF1`` bytes.  The caller must keep the
+        snapshot on an authenticated durable store; this method never writes a
+        secret or a lease token.
+        """
+        if isinstance(max_frames, bool) or not isinstance(max_frames, int) or not 1 <= max_frames <= 4096:
+            raise FabricError("max_frames must be in 1..4096")
+        with self._lock:
+            points: list[dict[str, Any]] = []
+            remaining = max_frames
+            for hw in sorted(self._points):
+                module = self._points[hw]
+                with module._lock:
+                    frames = list(module._inbox)[:remaining]
+                remaining -= len(frames)
+                points.append({
+                    "hw": hw,
+                    "role": module.role,
+                    "status": module.status,
+                    "inbox": [frame.encode().hex() for frame in frames],
+                })
+                if remaining <= 0:
+                    break
+            pending = [frame.encode().hex() for frame in list(self._pending)[:max(0, remaining)]]
+            return {
+                "schema": "nanrouter.zero-point-handoff.v1",
+                "fabric": FABRIC_SCHEMA,
+                "points": points,
+                "pending": pending,
+                "received": self._received,
+                "delivered": self._delivered,
+                "pending_events": self._pending_events,
+                "rejected": self._rejected,
+                "recent_routes": list(self._routes[-32:]),
+            }
+
+    def import_state(self, state: Any) -> dict[str, Any]:
+        """Restore a bounded handoff snapshot exported by :meth:`export_state`."""
+        if not isinstance(state, dict):
+            raise FabricError("handoff state must be an object")
+        if state.get("schema") != "nanrouter.zero-point-handoff.v1":
+            raise FabricError("unsupported handoff schema")
+        points = state.get("points", [])
+        pending = state.get("pending", [])
+        if not isinstance(points, list) or not isinstance(pending, list):
+            raise FabricError("handoff points/pending must be lists")
+        restored = 0
+        with self._lock:
+            for record in points:
+                if not isinstance(record, dict):
+                    raise FabricError("handoff point must be an object")
+                hw = _hw(record.get("hw"))
+                role = record.get("role")
+                status = record.get("status", "active")
+                if not isinstance(role, str) or not isinstance(status, str):
+                    raise FabricError("handoff point role/status must be strings")
+                module = self._points.get(hw)
+                if module is None:
+                    module = PointTranslationModule(hw, role, status, inbox_limit=self.inbox_limit)
+                    self._points[hw] = module
+                else:
+                    module.role = role
+                    module.status = status
+                for raw in record.get("inbox", []):
+                    if not isinstance(raw, str) or len(raw) > MAX_FRAME_BYTES * 2:
+                        raise FabricError("handoff frame is malformed")
+                    module.accept(PointFrame.decode(bytes.fromhex(raw)))
+                    restored += 1
+            for raw in pending:
+                if not isinstance(raw, str) or len(raw) > MAX_FRAME_BYTES * 2:
+                    raise FabricError("handoff pending frame is malformed")
+                if len(self._pending) >= self.pending_limit:
+                    raise FabricCapacityError("pending queue is full during handoff restore")
+                self._pending.append(PointFrame.decode(bytes.fromhex(raw)))
+                restored += 1
+            for key in ("received", "delivered", "pending_events", "rejected"):
+                value = state.get(key)
+                if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                    setattr(self, "_" + key, value)
+        return {"restored_frames": restored, "points": len(points)}
+
     def point_monitor(self, hw: int) -> dict[str, Any]:
         return self.point(hw).monitor()
 

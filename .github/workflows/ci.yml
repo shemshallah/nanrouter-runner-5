@@ -1,4 +1,4 @@
-name: runner-tests
+name: runner-ring-tests
 
 on:
   push:
