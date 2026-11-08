@@ -64,6 +64,29 @@ POST /v1/ring/checkpoint authenticated checkpoint publication
 POST /v1/ring/handoff    authenticated explicit step-down
 ```
 
+## 24/7 deployment
+
+The repository is intentionally non-Koyeb. Any always-on host works:
+
+```sh
+docker compose up -d --build
+```
+
+or a systemd unit:
+
+```sh
+sudo install -d /opt/nanrouter-runner /var/lib/nanrouter-runner
+sudo cp -a . /opt/nanrouter-runner
+sudo cp deploy/nanrouter-runner.service /etc/systemd/system/
+sudo cp deploy/nanrouter-runner.env.example /etc/nanrouter-runner.env
+# edit the token and public URL, then:
+sudo systemctl enable --now nanrouter-runner
+```
+
+Run the six repositories on six independent hosts (or six supervised
+processes). Each has the same code and a different `slot` file. The Koyeb
+authority guarantees one active `HW5:0` owner and an epoch-bound handoff.
+
 ## Ring addresses
 
 ```text

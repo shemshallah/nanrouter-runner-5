@@ -1,0 +1,16 @@
+services:
+  runner:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - runner-state:/data
+    read_only: false
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  runner-state:

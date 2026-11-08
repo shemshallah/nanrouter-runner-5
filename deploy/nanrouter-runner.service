@@ -1,0 +1,24 @@
+[Unit]
+Description=NaNVerse six-slot runner-ring node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nanrouter
+Group=nanrouter
+WorkingDirectory=/opt/nanrouter-runner
+EnvironmentFile=/etc/nanrouter-runner.env
+ExecStart=/usr/bin/python3 /opt/nanrouter-runner/ring_runner.py
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/nanrouter-runner
+StateDirectory=nanrouter-runner
+Environment=NANROUTER_RUNNER_STATE_DIR=/var/lib/nanrouter-runner
+
+[Install]
+WantedBy=multi-user.target
