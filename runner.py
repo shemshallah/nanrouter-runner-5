@@ -127,19 +127,19 @@ class RunnerConfig:
         base = Path(root) if root is not None else Path(__file__).resolve().parent
         configured_slot = slot
         if configured_slot is None:
-            configured_slot = os.environ.get("RUNNER_SLOT") or _read_identity_file(base, "slot")
+            configured_slot = os.environ.get("NANROUTER_RUNNER_SLOT") or _read_identity_file(base, "slot")
         configured_hw = hw
         if configured_hw is None:
-            configured_hw = os.environ.get("RUNNER_HW") or _read_identity_file(base, "hw")
+            configured_hw = os.environ.get("NANROUTER_RUNNER_HW") or _read_identity_file(base, "hw")
         configured_url = central_url or os.environ.get("NANROUTER_URL", "")
         token = os.environ.get("NANROUTER_FABRIC_TOKEN", "")
-        configured_state = state_dir or os.environ.get("RUNNER_STATE_DIR")
+        configured_state = state_dir or os.environ.get("NANROUTER_RUNNER_STATE_DIR")
         slot_number = _int(configured_slot if configured_slot is not None else 0, "slot", SLOT_MIN, SLOT_MAX)
         if configured_state is None:
             configured_state = Path.home() / ".local" / "share" / f"nanrouter-runner-{slot_number}"
-        relay = os.environ.get("RUNNER_RELAY_DESTINATION") or None
+        relay = os.environ.get("NANROUTER_RUNNER_RELAY_DESTINATION") or None
         routes: dict[str, int] = {}
-        raw_routes = os.environ.get("RUNNER_ROUTES", "").strip()
+        raw_routes = os.environ.get("NANROUTER_RUNNER_ROUTES", "").strip()
         if raw_routes:
             try:
                 parsed_routes = json.loads(raw_routes)
@@ -154,12 +154,12 @@ class RunnerConfig:
             central_url=configured_url,
             token=token,
             state_dir=Path(configured_state),
-            poll_seconds=float(os.environ.get("RUNNER_POLL_SECONDS", "5")),
+            poll_seconds=float(os.environ.get("NANROUTER_RUNNER_POLL_SECONDS", "5")),
             relay_destination=None if relay is None else _int(relay, "relay_destination", 0, 255),
             routes=routes,
-            health_host=os.environ.get("RUNNER_HEALTH_HOST", "0.0.0.0"),
-            health_port=_int(os.environ.get("PORT", os.environ.get("RUNNER_HEALTH_PORT", "8080")), "health_port", 1, 65535),
-            name=os.environ.get("RUNNER_NAME", f"nanrouter-runner-{slot_number}"),
+            health_host=os.environ.get("NANROUTER_RUNNER_HEALTH_HOST", "0.0.0.0"),
+            health_port=_int(os.environ.get("PORT", os.environ.get("NANROUTER_RUNNER_HEALTH_PORT", "8080")), "health_port", 1, 65535),
+            name=os.environ.get("NANROUTER_RUNNER_NAME", f"nanrouter-runner-{slot_number}"),
         )
 
 

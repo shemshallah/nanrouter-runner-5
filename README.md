@@ -26,7 +26,7 @@ slot or byte offset. It preserves the exact NaN16DE word bytes.
 ```sh
 export NANROUTER_FABRIC_TOKEN='<32+ random characters>'
 export NANROUTER_URL='https://<hub-host>'
-export RUNNER_STATE_DIR=/data/runner-state
+export NANROUTER_RUNNER_STATE_DIR=/data/runner-state
 ./start.sh
 ```
 
@@ -52,7 +52,7 @@ runners own `HW5:0`..`HW255:0`; the portal remains the allocation authority.
 
 ## Route table
 
-`RUNNER_ROUTES` is a JSON object of kind prefixes to destination zero points:
+`NANROUTER_RUNNER_ROUTES` is a JSON object of kind prefixes to destination zero points:
 
 ```json
 {"hermes.": 2, "wordnet.": 4, "vector": 0}

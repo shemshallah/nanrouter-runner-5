@@ -73,7 +73,7 @@ class ConfigTests(unittest.TestCase):
             with patch.dict(os.environ, {
                 "NANROUTER_URL": "https://router.example",
                 "NANROUTER_FABRIC_TOKEN": "t" * 40,
-                "RUNNER_STATE_DIR": str(root / "state"),
+                "NANROUTER_RUNNER_STATE_DIR": str(root / "state"),
             }, clear=False):
                 config = RunnerConfig.from_env(root)
         self.assertEqual(config.slot, 3)
